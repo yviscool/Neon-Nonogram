@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>霓虹数织</title>
+    <style>
+        /* 样式代码与之前的版本相同，此处省略 */
+        body {
+            font-family: 'Press Start 2P', sans-serif;
+            background: #111;
+            color: #00fffc;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .controls > * {
+            margin-bottom: 0;
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-areas:
+                "empty top"
+                "left main";
+            gap: 5px;
+            position: relative;
+            margin-top: 20px;
+        }
+
+        .hint-area {
+            background: rgba(0, 255, 255, 0.1);
+            padding: 8px;
+        }
+
+        #top-hints {
+            grid-area: top;
+            display: grid;
+            grid-auto-flow: column;
+            gap: 5px;
+        }
+
+        #left-hints {
+            grid-area: left;
+            display: grid;
+            gap: 5px;
+        }
+
+        .cell {
+            position: relative;
+            width: 35px;
+            height: 35px;
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cell::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 1px solid rgba(0, 255, 255, 0.1);
+        }
+
+        .cell.filled {
+            background: #00fffc;
+            box-shadow: 0 0 10px #00fffc;
+        }
+
+        .cell.filled::after {
+            border-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .cell.error { /* 新增错误样式 */
+            background-color: rgba(255, 182, 193, 0.4); /* 柔和粉色，降低了不透明度 */
+        }
+
+        .row-hint, .col-hint {
+            display: flex;
+            font-size: 16px;
+            color: #00fffc;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        .row-hint {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            padding-right: 10px;
+        }
+
+        .col-hint {
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding-bottom: 10px;
+            height: 100%;
+            justify-content: flex-end;
+        }
+
+
+        select#size-select {
+            appearance: none;
+            background: linear-gradient(135deg, #44cc44, #88ff88);
+            border: none;
+            padding: 12px 20px;
+            color: #fff;
+            font-size: 16px;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        select#size-select option {
+              background: #111;
+            color: #fff;
+        }
+
+        #size-select:hover {
+            transform: scale(1.05);
+            box-shadow: 0px 4px 10px rgba(68, 204, 68, 0.5);
+        }
+
+
+        button {
+            background: linear-gradient(135deg, #ff0099, #ff66cc);
+            border: none;
+            padding: 12px 25px;
+            color: #fff;
+            font-size: 16px;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0px 4px 10px rgba(255, 0, 153, 0.5);
+        }
+
+        .victory .cell.filled {
+            animation: glow 1s infinite alternate;
+        }
+
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #00fffc; }
+            to { box-shadow: 0 0 20px #00fffc; }
+        }
+
+        /* 烟花效果 */
+        #fireworks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        #timer { /* 定时器样式 */
+            margin-top: 20px;
+            font-size: 1.4em;
+            color: #fff;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.8);
+            text-align: center;
+        }
+
+
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.11.1/tsparticles.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+    <h1>霓虹数织</h1>
+    <div class="controls">
+        <select id="size-select">
+            <option value="5">5 x 5</option>
+            <option value="10">10 x 10</option>
+            <option value="15">15 x 15</option>
+        </select>
+        <button id="new-game">重置游戏</button>
+    </div>
+    <div id="timer">0 秒</div>
+    <div class="game-container" id="game-container"></div>
+    <canvas id="fireworks"></canvas>
+
+
+    <script>
+        /**
+         * 生成指定大小的数织游戏棋盘和行列提示数字
+         * @param {number} size 棋盘大小 (例如: 5, 10, 15, 20, 25)
+         * @returns {object} 包含棋盘 (grid), 行提示 (rowClues), 列提示 (colClues) 的对象
+         */
+        function generateNonogram(size) {
+            // 初始化一个指定大小的空白棋盘 (使用 0 表示空白，1 表示填充)
+            let grid = Array(size).fill(null).map(() => Array(size).fill(0));
+
+            // 填充棋盘，确保每行每列至少有一个色块，并控制色块分散程度
+            grid = fillGrid(grid, size);
+
+            // 生成行提示数字
+            const rowClues = generateRowClues(grid);
+            // 生成列提示数字
+            const colClues = generateColClues(grid);
+
+            return { grid: grid, solution: grid, rowClues: rowClues, colClues: colClues }; // Changed to return solution as well for checkSolution to work correctly
+        }
+
+        /**
+         * 填充棋盘，使每行每列至少有一个色块，并尽量使色块集中
+         * @param {number[][]} grid 空白棋盘
+         * @param {number} size 棋盘大小
+         * @returns {number[][]} 填充后的棋盘
+         */
+        function fillGrid(grid, size) {
+            // 确保每行至少有一个色块
+            for (let i = 0; i < size; i++) {
+                let filledInRow = false;
+                for (let j = 0; j < size; j++) {
+                    if (Math.random() < 0.6) { // Adjusted probability to 0.4 for less dense puzzles, you can adjust as needed.
+                        grid[i][j] = 1;
+                        filledInRow = true;
+                    }
+                }
+                if (!filledInRow) {
+                    // 如果该行没有填充任何色块，则随机选择一个位置填充
+                    const randomCol = Math.floor(Math.random() * size);
+                    grid[i][randomCol] = 1;
+                }
+            }
+
+            // 确保每列至少有一个色块 (可以省略这一步，因为行填充通常也会使列有色块，但为了更严格的保证，可以加上)
+            for (let j = 0; j < size; j++) {
+                let filledInCol = false;
+                for (let i = 0; i < size; i++) {
+                    if (grid[i][j] === 1) {
+                        filledInCol = true;
+                        break;
+                    }
+                }
+                if (!filledInCol) {
+                    // 如果该列没有填充任何色块，则随机选择一个位置填充
+                    const randomRow = Math.floor(Math.random() * size);
+                    grid[randomRow][j] = 1;
+                }
+            }
+
+            return grid;
+        }
+
+
+        /**
+         * 生成行提示数字
+         * @param {number[][]} grid 填充好的棋盘
+         * @returns {number[][]} 行提示数字数组
+         */
+        function generateRowClues(grid) {
+            return grid.map(row => getClues(row));
+        }
+
+        /**
+         * 生成列提示数字
+         * @param {number[][]} grid 填充好的棋盘
+         * @returns {number[][]} 列提示数字数组
+         */
+        function generateColClues(grid) {
+            const size = grid.length;
+            let colClues = [];
+            for (let j = 0; j < size; j++) {
+                let column = [];
+                for (let i = 0; i < size; i++) {
+                    column.push(grid[i][j]);
+                }
+                colClues.push(getClues(column));
+            }
+            return colClues;
+        }
+
+        /**
+         * 从一行或一列数据中提取数字线索
+         * @param {number[]} lineData 一行或一列的数据 (0 和 1 数组)
+         * @returns {number[]} 数字线索数组
+         */
+        function getClues(lineData) {
+            let clues = [];
+            let currentBlockLength = 0;
+            for (const cell of lineData) {
+                if (cell === 1 || cell === true) {
+                    currentBlockLength++;
+                } else {
+                    if (currentBlockLength > 0) {
+                        clues.push(currentBlockLength);
+                        currentBlockLength = 0;
+                    }
+                }
+            }
+            if (currentBlockLength > 0) {
+                clues.push(currentBlockLength);
+            }
+            return clues.length === 0 ? [0] : clues; // 如果没有色块，则线索为 [0]
+        }
+
+        /**
+         * 打印棋盘到控制台 (用于测试)
+         * @param {number[][]} grid 棋盘
+         */
+        function printGrid(grid) {
+            grid.forEach(row => {
+                console.log(row.map(cell => cell === 1 ? '■' : '□').join(' '));
+            });
+        }
+
+        /**
+         * 打印行列提示数字 (用于测试)
+         * @param {number[][]} rowClues 行提示数字
+         * @param {number[][]} colClues 列提示数字
+         */
+        function printClues(rowClues, colClues) {
+            console.log("行提示：");
+            rowClues.forEach(clue => console.log(clue.join(' ')));
+            console.log("列提示：");
+            colClues.forEach(clue => console.log(clue.join('\n')));
+        }
+
+
+        class NonogramGame {
+            constructor() {
+                this.size = 5;
+                this.board = [];
+                this.solution = [];
+                this.rowHints = [];
+                this.colHints = [];
+                this.isDragging = false;
+                this.dragState = null;
+                this.seconds = 0; // 计时器
+                this.timer = null; // 计时器对象
+                this.errorTimeout = null; // 错误提示计时器
+                this.init();
+            }
+
+            init() {
+                document.getElementById('new-game').addEventListener('click', () => this.newGame());
+                document.getElementById('size-select').addEventListener('change', e => {
+                    this.size = parseInt(e.target.value);
+                    this.newGame();
+                });
+                this.newGame();
+            }
+
+            newGame() {
+                const nonogramData = generateNonogram(this.size); // Use the new puzzle generation logic
+                this.solution = nonogramData.solution;
+                this.rowHints = nonogramData.rowClues;
+                this.colHints = nonogramData.colClues;
+                this.seconds = 0;
+                this.updateTimerDisplay(); // 初始化显示 0 秒
+                this.startTimer();
+                this.render();
+                this.addEventListeners();
+                this.clearErrorIndicators(); // 开始新游戏时清除错误标识
+            }
+
+
+            render() {
+                const container = document.getElementById('game-container');
+                container.innerHTML = '';
+
+                const topHints = document.createElement('div');
+                topHints.id = 'top-hints';
+                this.colHints.forEach(hint => {
+                    const div = document.createElement('div');
+                    div.className = 'col-hint';
+                    hint.forEach(num => {
+                        const span = document.createElement('span');
+                        span.textContent = num;
+                        div.appendChild(span);
+                    });
+                    topHints.appendChild(div);
+                });
+
+                const leftHints = document.createElement('div');
+                leftHints.id = 'left-hints';
+                this.rowHints.forEach(hint => {
+                    const div = document.createElement('div');
+                    div.className = 'row-hint';
+                    hint.forEach(num => {
+                        const span = document.createElement('span');
+                        span.textContent = num;
+                        div.appendChild(span);
+                    });
+                    leftHints.appendChild(div);
+                });
+
+                const mainGrid = document.createElement('div');
+                mainGrid.style.gridArea = 'main';
+                mainGrid.style.display = 'grid';
+                mainGrid.style.gridTemplateColumns = `repeat(${this.size}, ${35}px)`; /* 单元格宽度与CSS中的 .cell 宽度一致 */
+
+                this.board = [];
+                for(let i = 0; i < this.size; i++) {
+                    for(let j = 0; j < this.size; j++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.dataset.row = i;
+                        cell.dataset.col = j;
+                        this.board.push(cell);
+                        mainGrid.appendChild(cell);
+                    }
+                }
+
+                container.appendChild(topHints);
+                container.appendChild(leftHints);
+                container.appendChild(mainGrid);
+            }
+
+            addEventListeners() {
+                let isMouseDown = false;
+                let startState = null;
+
+                this.board.forEach(cell => {
+                    cell.addEventListener('mousedown', e => {
+                        e.preventDefault(); // 阻止默认的拖动行为
+                        isMouseDown = true;
+                        startState = !cell.classList.contains('filled'); //  记录拖动开始时的 "填充" 状态 (true 表示要填充，false 表示要取消填充)
+                        if (!this.checkHintExceed(cell, startState)) { // 检查是否超出提示限制
+                            this.toggleCell(cell, startState); // 首次点击 *根据状态* 切换单元格
+                            this.clearErrorIndicators(); // 清除之前的错误标识
+                            this.checkAutoVictory();
+                        }
+                    });
+
+                    cell.addEventListener('mouseenter', e => {
+                        if(isMouseDown) {
+                            if (!this.checkHintExceed(cell, startState)) { // 检查是否超出提示限制
+                                this.toggleCell(cell, startState); // 拖动时 *根据状态* 填充/取消填充
+                                this.clearErrorIndicators(); // 清除之前的错误标识
+                                this.checkAutoVictory();
+                            }
+                        }
+                    });
+                });
+
+                document.addEventListener('mouseup', () => {
+                    isMouseDown = false;
+                });
+            }
+
+            // 修改后的 toggleCell 方法，接受 state 参数，根据 state 决定是否填充
+            toggleCell(cell, state) {
+                cell.classList.toggle('filled', state); //  state 为 true 则添加 'filled' class,  false 则移除
+            }
+
+
+            checkAutoVictory() {
+                if (this.checkSolution()) {
+                    document.getElementById('game-container').classList.add('victory');
+                    clearInterval(this.timer);
+                    this.showWin();
+                }
+            }
+
+            checkSolution() {
+                let rowCheck = true;
+                for (let row = 0; row < this.size; row++) {
+                    const expectedHints = this.rowHints[row];
+                    const actualLine = this.board
+                        .slice(row * this.size, (row + 1) * this.size)
+                        .map(c => c.classList.contains('filled'));
+                    const actualHints = getClues(actualLine);
+                    const rowResult = JSON.stringify(actualHints) === JSON.stringify(expectedHints);
+                    if (!rowResult) {
+                        rowCheck = false;
+                    }
+                }
+
+                let colCheck = true;
+                for (let col = 0; col < this.size; col++) {
+                    const expectedHints = this.colHints[col];
+                    const actualLine = Array.from({length: this.size}, (_, row) =>
+                        this.board[row * this.size + col].classList.contains('filled')
+                    );
+                    const actualHints = getClues(actualLine);
+                    const colResult = JSON.stringify(actualHints) === JSON.stringify(expectedHints);
+                    if (!colResult) {
+                        colCheck = false;
+                    }
+                }
+
+                return rowCheck && colCheck;
+            }
+
+            startTimer() {
+                clearInterval(this.timer);
+                this.seconds = 0;
+                this.updateTimerDisplay(); // 初始化显示 0 秒
+                this.timer = setInterval(() => {
+                    this.seconds++;
+                    this.updateTimerDisplay();
+                }, 1000);
+            }
+
+            updateTimerDisplay() {
+                document.getElementById('timer').textContent = `计时: ${this.seconds}s`;
+            }
+
+
+            showWin() {
+                Swal.fire({ // 使用 SweetAlert2 弹出提示框
+                    title: "恭喜！", // 提示标题
+                    text: `你用 ${this.seconds} 秒完成数织！`, // 提示文本，显示完成时间
+                    icon: "success", // 提示图标，成功
+                    confirmButtonText: "再来一局", // 确认按钮文本
+                    background: "#1e1e1e", // 弹窗背景色
+                    color: "#fff", // 弹窗文本颜色
+                    confirmButtonColor: "#00ccff", // 确认按钮颜色
+                    customClass: { // 自定义 CSS 类名，用于样式调整
+                        popup: "sweet-popup",
+                        title: "sweet-title",
+                        confirmButton: "sweet-confirm-button",
+                    },
+                    showCloseButton: true, // 显示关闭按钮
+                    focusConfirm: false, // 默认焦点不在确认按钮上
+                    backdrop: "rgba(0, 0, 0, 0.7)", // 背景遮罩颜色
+                    padding: "2rem", // 弹窗内边距
+                    borderRadius: "10px", // 弹窗圆角边框
+                    boxShadow: "0px 0px 20px rgba(0, 255, 255, 0.5)", // 弹窗阴影效果
+                }).then((result) => { // 弹窗关闭后的回调
+                    if (result.isConfirmed) { // 如果点击了确认按钮（再来一局）
+                        this.newGame(); // 重置游戏
+                    }
+                });
+                this.showFireworks(); // 显示烟花效果
+            }
+
+            // 显示烟花效果
+            showFireworks() {
+                tsParticles.load({ // 使用 tsparticles 库加载烟花效果配置
+                    id: "tsparticles",
+                    options: {
+                        fullScreen: {
+                            zIndex: 1, // 烟花效果层级
+                        },
+                        particles: {
+                            number: {
+                                value: 0, // 初始粒子数量为 0，通过发射器动态生成
+                            },
+                            color: {
+                                value: ["#00FFFC", "#FC00FF", "#fffc00"], // 烟花颜色，青色、粉色、黄色
+                            },
+                            shape: {
+                                type: ["circle", "square"], // 粒子形状，圆形和正方形
+                                options: {},
+                            },
+                            opacity: {
+                                value: {
+                                    min: 0,
+                                    max: 1, // 粒子不透明度范围
+                                },
+                                animation: {
+                                    enable: true, // 启用不透明度动画
+                                    speed: 2, // 不透明度动画速度
+                                    startValue: "max", // 动画起始值，最大不透明度
+                                    destroy: "min", // 动画结束时销毁粒子，最小不透明度
+                                },
+                            },
+                            size: {
+                                value: {
+                                    min: 2,
+                                    max: 4, // 粒子大小范围
+                                },
+                            },
+                            links: {
+                                enable: false, // 禁用粒子连接线
+                            },
+                            life: {
+                                duration: {
+                                    sync: true,
+                                    value: 5, // 粒子生命周期，单位秒
+                                },
+                                count: 1, // 粒子生命周期计数
+                            },
+                            move: {
+                                enable: true, // 启用粒子运动
+                                gravity: {
+                                    enable: true, // 启用重力
+                                    acceleration: 10, // 重力加速度
+                                },
+                                speed: {
+                                    min: 10,
+                                    max: 20, // 粒子速度范围
+                                },
+                                decay: 0.1, // 粒子速度衰减
+                                direction: "none", // 粒子运动方向，无特定方向
+                                straight: false, // 粒子不直线运动
+                                outModes: {
+                                    default: "destroy", // 粒子超出画布边界时销毁
+                                    top: "none", // 粒子从顶部超出边界时不特殊处理
+                                },
+                            },
+                            rotate: {
+                                value: {
+                                    min: 0,
+                                    max: 360, // 粒子旋转角度范围
+                                },
+                                direction: "random", // 随机旋转方向
+                                move: true, // 启用粒子旋转
+                                animation: {
+                                    enable: true, // 启用旋转动画
+                                    speed: 60, // 旋转动画速度
+                                },
+                            },
+                            tilt: {
+                                direction: "random", // 随机倾斜方向
+                                enable: true, // 启用粒子倾斜
+                                move: true, // 启用粒子倾斜运动
+                                value: {
+                                    min: 0,
+                                    max: 360, // 粒子倾斜角度范围
+                                },
+                                animation: {
+                                    enable: true, // 启用倾斜动画
+                                    speed: 60, // 倾斜动画速度
+                                },
+                            },
+                            roll: {
+                                darken: {
+                                    enable: true, // 启用滚动变暗
+                                    value: 25, // 滚动变暗值
+                                },
+                                enable: true, // 启用粒子滚动
+                                speed: {
+                                    min: 15,
+                                    max: 25, // 滚动速度范围
+                                },
+                            },
+                            wobble: {
+                                distance: 30, // 摆动距离
+                                enable: true, // 启用粒子摆动
+                                move: true, // 启用粒子摆动运动
+                                speed: {
+                                    min: -15,
+                                    max: 15, // 摆动速度范围
+                                },
+                            },
+                        },
+                        emitters: {
+                            life: {
+                                count: 0, // 发射器生命周期计数，0 表示无限
+                                duration: 0.1, // 发射器每次发射持续时间
+                                delay: 0.4, // 发射器发射延迟
+                            },
+                            rate: {
+                                delay: 0.1, // 发射器每次发射之间的延迟
+                                quantity: 150, // 每次发射粒子数量
+                            },
+                            size: {
+                                width: 0,
+                                height: 0, // 发射器大小，设置为 0 表示从点发射
+                            },
+                        },
+                    },
+                });
+                setTimeout(() => {
+                    tsParticles.domItem(0).destroy(); // 6 秒后销毁烟花效果
+                }, 6000);
+            }
+
+            /**
+             * 检查填充是否超过行列提示数字的总和
+             * @param {HTMLElement} cell 当前操作的单元格元素
+             * @param {boolean} state 单元格即将改变的状态 (true: 填充, false: 清空)
+             * @returns {boolean} 如果操作会导致超出提示总和，则返回 true，否则返回 false
+             */
+            checkHintExceed(cell, state) {
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+                const rowHintSum = this.rowHints[row].reduce((sum, num) => sum + num, 0); // 行提示数字总和
+                const colHintSum = this.colHints[col].reduce((sum, num) => sum + num, 0); // 列提示数字总和
+
+                let currentRowFilledCount = 0;
+                let currentColFilledCount = 0;
+
+                // 统计当前行已填充的单元格数量 (包括即将操作的单元格)
+                for (let i = 0; i < this.size; i++) {
+                    const currentCell = this.board[row * this.size + i];
+                    if (currentCell.classList.contains('filled') || (currentCell === cell && state)) { // 包括即将填充的单元格
+                        currentRowFilledCount++;
+                    }
+                }
+
+                // 统计当前列已填充的单元格数量 (包括即将操作的单元格)
+                for (let i = 0; i < this.size; i++) {
+                    const currentCell = this.board[i * this.size + col];
+                    if (currentCell.classList.contains('filled') || (currentCell === cell && state)) { // 包括即将填充的单元格
+                        currentColFilledCount++;
+                    }
+                }
+
+                if (currentRowFilledCount > rowHintSum) {
+                    this.setErrorIndicators(row, 'row'); // 标记行错误
+                    return true; // 行超出限制
+                }
+
+                if (currentColFilledCount > colHintSum) {
+                    this.setErrorIndicators(col, 'col'); // 标记列错误
+                    return true; // 列超出限制
+                }
+
+                return false; // 未超出限制
+            }
+
+
+            /**
+             * 设置错误标识，并定时清除
+             * @param {number} index 行或列的索引
+             * @param {string} type 'row' 或 'col'，指定是行错误还是列错误
+             */
+            setErrorIndicators(index, type) {
+                this.clearErrorIndicators(); // 清除之前的错误标识
+
+                if (type === 'row') {
+                    for (let i = 0; i < this.size; i++) {
+                        this.board[index * this.size + i].classList.add('error');
+                    }
+                } else if (type === 'col') {
+                    for (let i = 0; i < this.size; i++) {
+                        this.board[i * this.size + index].classList.add('error');
+                    }
+                }
+
+                this.errorTimeout = setTimeout(() => {
+                    this.clearErrorIndicators();
+                }, 500); // 0.5 秒后清除错误标识
+            }
+
+            /**
+             * 清除棋盘上所有错误标识
+             */
+            clearErrorIndicators() {
+                this.board.forEach(cell => cell.classList.remove('error'));
+                if (this.errorTimeout) {
+                    clearTimeout(this.errorTimeout);
+                    this.errorTimeout = null;
+                }
+            }
+        }
+
+        const game = new NonogramGame();
+    </script>
+</body>
+</html>
