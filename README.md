@@ -23,7 +23,7 @@
 ## 🚀 使用方法
 
 ### 在线体验
-访问 [neon-nonogram](你的在线游戏地址，例如：https://neon-nonogram-demo.vercel.app/) 即可立即体验在线版霓虹数织。
+访问 [neon-nonogram](https://neon-nonogram.vercel.app/) 即可立即体验在线版霓虹数织。
 
 ### 本地运行
 1. 克隆项目到本地仓库：
